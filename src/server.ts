@@ -1,48 +1,65 @@
-import express from 'express'
-import colors from 'colors'
-import cors, { CorsOptions} from 'cors'
-import morgan from 'morgan'
-import swaggerUI from 'swagger-ui-express'
-import swaggerSpec, { swaggerUiOptions } from './config/swagger'
-import router from './router'
-import db from './config/db'
+// Importamos dependencias.
+import express from 'express' // Importa el framework Express.
+import colors from 'colors' // Colores para logs en consola.
+import cors, { CorsOptions } from 'cors' // Middleware para habilitar CORS.
+import morgan from 'morgan' // Middleware para logs HTTP.
+import swaggerUI from 'swagger-ui-express' // Middleware para servir documentación Swagger.
+import swaggerSpec, { swaggerUiOptions } from './config/swagger' // Configuración de Swagger.
+import router from './router' // Importamos las rutas desde router.ts.
+import db from './config/db' // Base de datos configurada con Sequelize.
 
-// Conectar a la base de datos
+// Función asíncrona para conectar a la base de datos.
 export async function connectDB() {
     try {
-        await db.authenticate()
-        db.sync()
-        //console.log(colors.blue.bold( 'Conectado a la BD'))
-    }catch(error) {
-        //console.log(error)
-        console.log(colors.red.bold( 'Hubo un error al conectar a la BD'))
+        await db.authenticate() // Autentica la conexión a la BD.
+        await db.sync() // Sincroniza modelos con la BD.
+        //console.log(colors.blue.bold('Conectado a la BD.')) // Mensaje de éxito, descomentarlo si quieres.
+    } catch (error) {
+        console.log(colors.red.bold('Hubo un error al conectar a la BD.')) // Mensaje de error en consola.
     }
 }
+
+// Llamamos a la función de conexión a la base de datos.
 connectDB()
 
-// Instancia de express
-const server = express()
+// Creamos la instancia del servidor Express.
+const servidor = express() // Este será nuestro servidor.
 
-// Permitir conexiones 
-const corsOptions : CorsOptions = {
-    origin: function(origin, callback) {
-        if(origin === process.env.FRONTED_URL) {
+// Obtenemos la URL permitida del entorno.
+const url_permitida = process.env.FRONTED_URL // Variable de entorno FRONTED_URL.
+
+// Opciones de configuración para CORS.
+const opciones_cors: CorsOptions = {
+    // La función origin se ejecuta cada vez que llega una petición.
+    origin: function (origin, callback) {
+        // Si no hay origin (por ejemplo, peticiones internas o Postman), o coincide con nuestra FRONTED_URL.
+        // Esto permite acceder desde la URL definida en FRONTED_URL.
+        if (!origin || origin === url_permitida) {
+            // Permitimos la petición.
             callback(null, true)
         } else {
+            // Si la URL no coincide, rechazamos la petición con un error.
             callback(new Error('Error de CORS'))
         }
     }
 }
-server.use(cors(corsOptions))
 
-// Leer datos de formularios
-server.use(express.json())
+// Aplicamos el middleware CORS con las opciones definidas.
+servidor.use(cors(opciones_cors))
 
-server.use(morgan('dev'))
+// Middleware para poder leer el body en formato JSON.
+servidor.use(express.json()) // Permite recibir datos en formato JSON desde el front-end.
 
-server.use('/api/products', router)
+// Middleware para log de peticiones HTTP.
+servidor.use(morgan('dev')) // Registra las peticiones en la consola para debug.
 
-// Docs
-server.use('/docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec, swaggerUiOptions) )
+// Rutas principales de la API.
+// Nota: Las rutas se sirven en /api/products. Ajusta si tienes otras rutas.
+servidor.use('/api/products', router)
 
-export default server
+// Rutas para la documentación Swagger.
+// Sirve la documentación Swagger en /docs.
+servidor.use('/docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec, swaggerUiOptions))
+
+// Exportamos el servidor para poder iniciarlo en index.ts.
+export default servidor
